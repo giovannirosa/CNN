@@ -4,6 +4,10 @@ import keras
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten
 from keras.layers import Conv2D, MaxPooling2D, AveragePooling2D
+from numpy import expand_dims
+from keras.preprocessing.image import load_img
+from keras.preprocessing.image import img_to_array
+from keras.preprocessing.image import ImageDataGenerator
 # from keras import backend as K
 from PIL import Image
 import numpy as np
@@ -20,8 +24,34 @@ img_rows, img_cols = 64, 64
 num_classes = 12
 
 
-def load_images(image_paths, convert=False):
+def data_augmentation(path):
+    # load the image
+    img = load_img(path)
+    # convert to numpy array
+    data = img_to_array(img)
+    # expand dimension to one sample
+    samples = expand_dims(data, 0)
+    # create image data augmentation generator
+    datagen = ImageDataGenerator(brightness_range=[0.5, 1.5])
+    # prepare iterator
+    it = datagen.flow(samples, batch_size=1)
+    # generate samples and plot
+    img_list = []
+    for i in range(3):
+        # define subplot
+        # pyplot.subplot(330 + 1 + i)
+        # generate batch of images
+        batch = it.next()
+        # convert to unsigned integers for viewing
+        image = batch[0].astype('uint8')
+        img_list.append(image)
+        # plot raw pixel data
+        # pyplot.imshow(image)
+    # show the figure
+    return img_list
 
+
+def load_images(image_paths, convert=False, augmentate=False):
     x = []
     y = []
     for image_path in image_paths:
@@ -37,6 +67,12 @@ def load_images(image_paths, convert=False):
 
         x.append(img)
         y.append([int(label)])
+
+        if augmentate:
+            img_list = data_augmentation(path)
+            for gen_img in img_list:
+                x.append(gen_img)
+                y.append([int(label)])
 
     x = np.array(x)
     y = np.array(y)
@@ -57,7 +93,7 @@ def load_dataset(train_file, test_file, resize, convert=False, size=(224, 224)):
     train_paths.remove('')  # remove empty lines
     train_paths.sort()
 
-    x_train, y_train = load_images(train_paths, convert)
+    x_train, y_train = load_images(train_paths, convert, True)
 
     arq = open(test_file, 'r')
     texto = arq.read()
@@ -156,9 +192,9 @@ height_mean, width_mean = get_mean_size(train_file, test_file)
 print('Height Mean: %d, Width Mean: %d' % (height_mean, width_mean))
 
 # rgb
-input_shape = (img_rows, img_cols, 3)
+input_shape = (height_mean, width_mean, 3)
 (x_train, y_train), (x_test, y_test) = load_dataset(train_file,
-                                                    test_file, resize=True, convert=True, size=(img_rows, img_cols))
+                                                    test_file, resize=True, convert=True, size=(height_mean, width_mean))
 
 # save for the confusion matrix
 label = []
@@ -182,7 +218,7 @@ y_test = keras.utils.to_categorical(y_test, num_classes)
 
 
 batch_size = 128
-epochs = 10
+epochs = 20
 
 # create cnn model
 model = Sequential()
